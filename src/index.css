@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+/* Base dark sem @apply */
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: #0b0c0d;
+  color: #e5e7eb;
+  font-family: system-ui, Segoe UI, Roboto, Inter, Arial, sans-serif;
+}
+
+/* deixa o styling para as classes nos componentes */
