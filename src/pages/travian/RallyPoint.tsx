@@ -22,7 +22,7 @@ type TroopDefinition = {
 };
 
 // -----------------
-// Hooks utilitários
+// Hook utilitário
 // -----------------
 function useCountdown(targetTime: number | null) {
   const [remaining, setRemaining] = useState(0);
@@ -44,6 +44,42 @@ function formatMs(ms: number) {
   const min = Math.floor(ms / 60000) % 60;
   const hrs = Math.floor(ms / 3600000);
   return `${hrs}h ${min}m ${sec}s`;
+}
+
+// -----------------
+// Item da fila
+// -----------------
+function TrainingTaskItem({ task }: { task: TrainingTask }) {
+  const end = task.endTime ? new Date(task.endTime).getTime() : null;
+  const remaining = useCountdown(end);
+
+  const duration =
+    task.startTime && task.endTime
+      ? new Date(task.endTime).getTime() - new Date(task.startTime).getTime()
+      : null;
+
+  const elapsed = duration ? duration - remaining : 0;
+
+  return (
+    <li className="rounded border border-white/10 px-2 py-1 text-sm bg-neutral-800/50">
+      <div className="flex justify-between">
+        <span>
+          {task.count}x {task.troopType}
+        </span>
+        <span className="text-slate-400">
+          {task.status === "in_progress" && remaining > 0
+            ? `⏳ ${formatMs(remaining)}`
+            : task.status === "pending"
+            ? "⌛ Na fila"
+            : "✅ Concluído"}
+        </span>
+      </div>
+
+      {task.status === "in_progress" && duration && (
+        <progress className="w-full h-2 mt-1" value={elapsed} max={duration} />
+      )}
+    </li>
+  );
 }
 
 // -----------------
@@ -191,41 +227,9 @@ export default function Rallypoint() {
         )}
 
         <ul className="space-y-2">
-          {tasks.map((t) => {
-            const end = t.endTime ? new Date(t.endTime).getTime() : null;
-            const remaining = useCountdown(end);
-
-            const duration = t.startTime && t.endTime
-              ? new Date(t.endTime).getTime() - new Date(t.startTime).getTime()
-              : null;
-            const elapsed = duration ? duration - remaining : 0;
-
-            return (
-              <li
-                key={t.id}
-                className="rounded border border-white/10 px-2 py-1 text-sm bg-neutral-800/50"
-              >
-                <div className="flex justify-between">
-                  <span>{t.count}x {t.troopType}</span>
-                  <span className="text-slate-400">
-                    {t.status === "in_progress" && remaining > 0
-                      ? `⏳ ${formatMs(remaining)}`
-                      : t.status === "pending"
-                      ? "⌛ Na fila"
-                      : "✅ Concluído"}
-                  </span>
-                </div>
-
-                {t.status === "in_progress" && duration && (
-                  <progress
-                    className="w-full h-2 mt-1"
-                    value={elapsed}
-                    max={duration}
-                  />
-                )}
-              </li>
-            );
-          })}
+          {tasks.map((t) => (
+            <TrainingTaskItem key={t.id} task={t} />
+          ))}
         </ul>
       </section>
     </div>
