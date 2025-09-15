@@ -78,17 +78,17 @@ export default function ResourcesView() {
   const { activeVillage, reloadVillages } = useOutletContext<TravianOutletCtx>();
   const { onUpgrade, getQueueEta } = useBuildingUpgrade(activeVillage, reloadVillages);
 
-  if (!activeVillage) return <p>Sem aldeias.</p>;
-  const r = activeVillage.resourceAmounts;
-
-  // apenas os edifícios de recurso
+  // os hooks já correram aqui
   const buildings = useMemo(
     () =>
-      (activeVillage.buildings ?? []).filter((b) =>
+      (activeVillage?.buildings ?? []).filter((b) =>
         ["SAWMILL", "CLAY_PIT", "IRON_MINE", "FARM"].includes(b.type)
       ),
-    [activeVillage.buildings]
+    [activeVillage?.buildings]
   );
+
+  if (!activeVillage) return <p>Sem aldeias.</p>;
+  const r = activeVillage.resourceAmounts;
 
   return (
     <div className="space-y-6">

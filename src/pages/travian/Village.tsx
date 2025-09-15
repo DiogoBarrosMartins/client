@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useOutletContext } from "react-router-dom";
 import type { TravianOutletCtx } from "../../layout/TravianShell";
 import { useMemo } from "react";
@@ -48,7 +49,7 @@ function QueueItem({
 }) {
   const end = new Date(eta).getTime();
   const remaining = end - Date.now();
-  const duration = 60 * 1000; // placeholder → ideal: vir do backend
+  const duration = 60 * 1000; // ⚠️ ideal: vir do backend
   const progress = Math.max(0, 100 - (remaining / duration) * 100);
 
   return (
@@ -115,8 +116,21 @@ export default function VillageView() {
   const { activeVillage, reloadVillages } = useOutletContext<TravianOutletCtx>();
   const { onUpgrade, getQueueEta } = useBuildingUpgrade(activeVillage, reloadVillages);
 
+  const buildings = activeVillage?.buildings ?? [];
+
+  const queue = useMemo(() => {
+    return buildings
+      .map((b) => {
+        const eta = getQueueEta(b.id, (b as BuildQueueInfo).queuedUntil);
+        return eta ? { b, eta } : null;
+      })
+      .filter((x): x is { b: typeof buildings[number]; eta: string } => !!x);
+  }, [buildings, getQueueEta]);
+
+  queue.sort((a, b) => new Date(a.eta).getTime() - new Date(b.eta).getTime());
+
   if (!activeVillage) return <p>Sem aldeias.</p>;
-  const buildings = activeVillage.buildings ?? [];
+  if (buildings.length === 0) return <p>Sem dados de edifícios ainda.</p>;
 
   // Categorias
   const resources = buildings.filter((b) =>
@@ -128,20 +142,6 @@ export default function VillageView() {
   const others = buildings.filter(
     (b) => ![...resources, ...military].some((x) => x.id === b.id)
   );
-
-  // Queue ordenada
-  const queue = useMemo(() => {
-    return buildings
-      .map((b) => {
-        const eta = getQueueEta(b.id, (b as BuildQueueInfo).queuedUntil);
-        return eta ? { b, eta } : null;
-      })
-      .filter(Boolean) as Array<{ b: typeof buildings[number]; eta: string }>;
-  }, [buildings, getQueueEta]);
-
-  queue.sort((a, b) => new Date(a.eta).getTime() - new Date(b.eta).getTime());
-
-  if (buildings.length === 0) return <p>Sem dados de edifícios ainda.</p>;
 
   return (
     <div className="space-y-6">
@@ -200,7 +200,10 @@ export default function VillageView() {
         </ul>
       </section>
 
-      <TroopsPanel troops={activeVillage.troops ?? []} training={activeVillage.trainingTasks ?? []} />
+      <TroopsPanel
+        troops={activeVillage.troops ?? []}
+        training={activeVillage.trainingTasks ?? []}
+      />
     </div>
   );
 }
