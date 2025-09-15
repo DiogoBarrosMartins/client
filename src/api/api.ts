@@ -64,3 +64,14 @@ export async function getTroopDefinitions(villageId: string) {
   }>(`/villages/${villageId}/troops/definitions`);
   return res.data;
 }
+export async function getWorldMap() {
+  const res = await api.get<{
+    x: number;
+    y: number;
+    type: string;
+    name?: string;
+    playerName?: string;
+  }[]>("/world/map");
+
+  return res.data;
+}

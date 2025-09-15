@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import AdminMap, { type Tile } from "../../components/AdminMap"; // 👈 usar import type
 import type { Village } from "../../types";
+import { getWorldMap } from "../../api/api";
 
 // contexto vindo do TravianShell
 type Ctx = {
@@ -10,35 +11,27 @@ type Ctx = {
   activeVillage?: Village;
 };
 
-// resposta crua do backend
-interface RawTile {
-  x: number;
-  y: number;
-  type: string; // backend manda "VILLAGE", "OUTPOST", etc.
-  playerName?: string;
-  name?: string;
-}
-
 export default function MapView() {
   const { activeVillage } = useOutletContext<Ctx>();
   const [sel, setSel] = useState<{ x: number; y: number } | null>(null);
   const [tiles, setTiles] = useState<Tile[]>([]);
 
-  useEffect(() => {
-    fetch("/api/world/map")
-      .then((res) => res.json())
-      .then((data: RawTile[]) =>
-        data.map<Tile>((t) => ({
+useEffect(() => {
+  getWorldMap()
+    .then((data) =>
+      setTiles(
+        data.map((t) => ({
           x: t.x,
           y: t.y,
-          type: t.type.toLowerCase() as Tile["type"], // 👈 cast seguro
+          type: t.type.toLowerCase() as "village" | "outpost" | "resource" | "npc",
           owner: t.playerName,
           name: t.name,
         }))
       )
-      .then(setTiles)
-      .catch((err) => console.error("Erro a carregar tiles:", err));
-  }, []);
+    )
+    .catch((err) => console.error("Erro a carregar tiles:", err));
+}, []);
+
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
