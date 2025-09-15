@@ -1,5 +1,4 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-// src/pages/travian/Rallypoint.tsx
 import { useEffect, useState, useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import type { TravianOutletCtx } from "../../layout/TravianShell";
@@ -23,7 +22,7 @@ type TroopDefinition = {
 };
 
 // -----------------
-// Hook para countdown
+// Hooks utilitários
 // -----------------
 function useCountdown(targetTime: number | null) {
   const [remaining, setRemaining] = useState(0);
@@ -75,7 +74,7 @@ export default function Rallypoint() {
     return last?.endTime ? new Date(last.endTime).getTime() : null;
   }, [tasks]);
 
-  const remaining = useCountdown(totalQueueEnd);
+  const remainingTotal = useCountdown(totalQueueEnd);
 
   async function handleTrain(type: string, count: number, def: TroopDefinition) {
     try {
@@ -99,8 +98,6 @@ export default function Rallypoint() {
         return;
       }
 
-      console.log("👉 handleTrain ajustado:", { type, count, maxTrainable });
-
       await trainTroops(activeVillage!.id, type, count);
       await reloadVillages();
     } catch (err) {
@@ -115,6 +112,7 @@ export default function Rallypoint() {
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">Ponto de Reunião</h1>
 
+      {/* Secção de treino */}
       <section>
         <h2 className="font-medium">Treinar tropas</h2>
         <ul className="grid gap-2 sm:grid-cols-2">
@@ -182,27 +180,52 @@ export default function Rallypoint() {
         </ul>
       </section>
 
+      {/* Secção de fila */}
       <section>
         <h2 className="font-medium mt-4">Fila de treino</h2>
 
         {totalQueueEnd && (
           <div className="mb-2 text-sm text-slate-300">
-            Queue termina em: {formatMs(remaining)}
+            Queue termina em: {formatMs(remainingTotal)}
           </div>
         )}
 
-        <ul className="space-y-1">
-          {tasks.map((t) => (
-            <li
-              key={t.id}
-              className="flex justify-between rounded border border-white/10 px-2 py-1 text-sm"
-            >
-              <span>
-                {t.count}x {t.troopType}
-              </span>
-              <span>{t.status}</span>
-            </li>
-          ))}
+        <ul className="space-y-2">
+          {tasks.map((t) => {
+            const end = t.endTime ? new Date(t.endTime).getTime() : null;
+            const remaining = useCountdown(end);
+
+            const duration = t.startTime && t.endTime
+              ? new Date(t.endTime).getTime() - new Date(t.startTime).getTime()
+              : null;
+            const elapsed = duration ? duration - remaining : 0;
+
+            return (
+              <li
+                key={t.id}
+                className="rounded border border-white/10 px-2 py-1 text-sm bg-neutral-800/50"
+              >
+                <div className="flex justify-between">
+                  <span>{t.count}x {t.troopType}</span>
+                  <span className="text-slate-400">
+                    {t.status === "in_progress" && remaining > 0
+                      ? `⏳ ${formatMs(remaining)}`
+                      : t.status === "pending"
+                      ? "⌛ Na fila"
+                      : "✅ Concluído"}
+                  </span>
+                </div>
+
+                {t.status === "in_progress" && duration && (
+                  <progress
+                    className="w-full h-2 mt-1"
+                    value={elapsed}
+                    max={duration}
+                  />
+                )}
+              </li>
+            );
+          })}
         </ul>
       </section>
     </div>
