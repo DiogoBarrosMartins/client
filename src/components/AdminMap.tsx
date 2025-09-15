@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 
+// Tipo do tile (mesmo que usas no Map.tsx)
 export interface Tile {
   x: number;
   y: number;
-  type: "village" | "outpost" | "resource";
+  type: "village" | "outpost" | "resource" | "npc";
   owner?: string;
   name?: string;
 }
@@ -12,9 +13,10 @@ interface AdminMapProps {
   tiles: Tile[];
   size: number;
   onSelect?: (x: number, y: number) => void;
+  center?: { x: number; y: number };
 }
 
-export default function AdminMap({ tiles, size, onSelect }: AdminMapProps) {
+export default function AdminMap({ tiles, size, onSelect, center }: AdminMapProps) {
   const [tilePx, setTilePx] = useState(16);
 
   const byPos = useMemo(() => {
@@ -22,6 +24,17 @@ export default function AdminMap({ tiles, size, onSelect }: AdminMapProps) {
     for (const t of tiles) m.set(`${t.x},${t.y}`, t);
     return m;
   }, [tiles]);
+
+  // 👇 scroll automático para a aldeia ativa
+  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (center && containerRef.current) {
+      const { x, y } = center;
+      const scrollX = x * tilePx - containerRef.current.clientWidth / 2;
+      const scrollY = y * tilePx - containerRef.current.clientHeight / 2;
+      containerRef.current.scrollTo({ left: scrollX, top: scrollY, behavior: "smooth" });
+    }
+  }, [center, tilePx]);
 
   return (
     <div className="space-y-2">
@@ -39,13 +52,22 @@ export default function AdminMap({ tiles, size, onSelect }: AdminMapProps) {
         </div>
         <label className="flex items-center gap-2">
           Zoom
-          <input type="range" min={10} max={28} value={tilePx} onChange={(e) => setTilePx(Number(e.target.value))} />
+          <input
+            type="range"
+            min={10}
+            max={28}
+            value={tilePx}
+            onChange={(e) => setTilePx(Number(e.target.value))}
+          />
         </label>
       </div>
 
-      <div className="card overflow-auto max-w-full max-h-[60vh] p-2">
+      <div ref={containerRef} className="card overflow-auto max-w-full max-h-[60vh] p-2">
         <div style={{ width: tilePx * size }}>
-          <div className="grid" style={{ gridTemplateColumns: `repeat(${size}, ${tilePx}px)` }}>
+          <div
+            className="grid"
+            style={{ gridTemplateColumns: `repeat(${size}, ${tilePx}px)` }}
+          >
             {Array.from({ length: size * size }).map((_, i) => {
               const x = i % size;
               const y = Math.floor(i / size);
@@ -53,17 +75,31 @@ export default function AdminMap({ tiles, size, onSelect }: AdminMapProps) {
 
               let bg = "bg-neutral-800";
               let icon = "";
-              if (tile?.type === "village") { bg = "bg-emerald-600"; icon = "🏰"; }
-              else if (tile?.type === "outpost") { bg = "bg-rose-600"; icon = "⚑"; }
-              else if (tile?.type === "resource") { bg = "bg-amber-600"; icon = "⛏️"; }
+              if (tile?.type === "village") {
+                bg = "bg-emerald-600";
+                icon = "🏰";
+              } else if (tile?.type === "outpost") {
+                bg = "bg-rose-600";
+                icon = "⚑";
+              } else if (tile?.type === "resource") {
+                bg = "bg-amber-600";
+                icon = "⛏️";
+              }
 
               return (
                 <button
                   key={`${x}-${y}`}
                   onClick={() => onSelect?.(x, y)}
-                  title={`${x},${y} • ${tile?.type ?? "empty"}${tile?.owner ? ` (${tile.owner})` : ""}`}
+                  title={`${x},${y} • ${tile?.type ?? "empty"}${
+                    tile?.owner ? ` (${tile.owner})` : ""
+                  }`}
                   className={`${bg} transition-transform hover:scale-105 focus:outline-none`}
-                  style={{ width: tilePx, height: tilePx, fontSize: tilePx <= 12 ? 8 : 10, lineHeight: 1 }}
+                  style={{
+                    width: tilePx,
+                    height: tilePx,
+                    fontSize: tilePx <= 12 ? 8 : 10,
+                    lineHeight: 1,
+                  }}
                 >
                   {icon}
                 </button>
