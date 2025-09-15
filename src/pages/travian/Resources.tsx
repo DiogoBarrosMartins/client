@@ -1,7 +1,7 @@
 import { useOutletContext } from "react-router-dom";
 import type { TravianOutletCtx } from "../../layout/TravianShell";
-import { upgradeBuilding } from "../../api/api";
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
+import { useBuildingUpgrade } from "../../hooks/useBuildingUpgrade";
 
 const ICON: Record<string, string> = {
   SAWMILL: "🪵",
@@ -10,14 +10,12 @@ const ICON: Record<string, string> = {
   FARM: "🌾",
 };
 
-type BuildQueueInfo = {
-  status?: "idle" | "queued" | "in_progress";
-  queuedUntil?: string | null;
-};
-
 export default function ResourcesView() {
   const { activeVillage, reloadVillages } = useOutletContext<TravianOutletCtx>();
-  const [localQueued, setLocalQueued] = useState<Record<string, string>>({});
+  const { onUpgrade, getQueueEta, canAfford } = useBuildingUpgrade(
+    activeVillage,
+    reloadVillages
+  );
 
   if (!activeVillage) return <p>Sem aldeias.</p>;
   const r = activeVillage.resourceAmounts;
@@ -31,34 +29,24 @@ export default function ResourcesView() {
     [activeVillage.buildings]
   );
 
-  async function onUpgrade(type: string, buildingId: string) {
-    try {
-      const res = await upgradeBuilding(activeVillage!.id, type);
-      setLocalQueued((m) => ({ ...m, [buildingId]: res.finishAt }));
-      await reloadVillages();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Upgrade failed");
-    }
-  }
-
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">Recursos</h1>
 
       <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {buildings.map((b) => {
-          const q = b as unknown as BuildQueueInfo;
-          const localEta = localQueued[b.id];
-          const eta = localEta ?? q.queuedUntil ?? null;
+          const eta = getQueueEta(b.id, (b as any).queuedUntil);
           const isQueued = !!eta;
 
-          // custo dummy do próximo nível (podes ligar à tua lógica de blueprint)
+          // custo dummy do próximo nível (exemplo)
           const nextLevelCost = {
             wood: (b.level + 1) * 50,
             stone: (b.level + 1) * 30,
             food: (b.level + 1) * 20,
             gold: (b.level + 1) * 10,
           };
+
+          const affordable = canAfford(nextLevelCost);
 
           return (
             <li
@@ -89,17 +77,22 @@ export default function ResourcesView() {
               )}
 
               <button
-                disabled={isQueued}
-                className="rounded bg-blue-600 px-3 py-1 text-sm hover:bg-blue-700 disabled:opacity-60"
+                disabled={isQueued || !affordable}
+                className={`rounded px-3 py-1 text-sm ${
+                  affordable
+                    ? "bg-blue-600 hover:bg-blue-700"
+                    : "bg-gray-600 cursor-not-allowed"
+                } disabled:opacity-60`}
                 onClick={() => onUpgrade(b.type, b.id)}
               >
-                {isQueued ? "Na fila" : "Upgrade"}
+                {isQueued ? "Na fila" : affordable ? "Upgrade" : "Recursos insuficientes"}
               </button>
             </li>
           );
         })}
       </ul>
 
+      {/* Painel rápido de recursos */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
         <section className="rounded-xl border border-white/10 bg-neutral-900 p-4">
           <h2 className="font-semibold mb-1">🌲 Bosque</h2>
