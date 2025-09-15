@@ -15,14 +15,6 @@ type BuildQueueInfo = {
   queuedUntil?: string | null;
 };
 
-function formatMs(ms: number) {
-  if (ms <= 0) return "terminado";
-  const sec = Math.floor(ms / 1000) % 60;
-  const min = Math.floor(ms / 60000) % 60;
-  const hrs = Math.floor(ms / 3600000);
-  return `${hrs}h ${min}m ${sec}s`;
-}
-
 export default function ResourcesView() {
   const { activeVillage, reloadVillages } = useOutletContext<TravianOutletCtx>();
   const [localQueued, setLocalQueued] = useState<Record<string, string>>({});
