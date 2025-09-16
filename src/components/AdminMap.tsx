@@ -1,4 +1,7 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Stage, Container, Graphics } from "@pixi/react-pixi";
+import type { FederatedPointerEvent } from "pixi.js";
 
 export interface Tile {
   x: number;
@@ -7,22 +10,24 @@ export interface Tile {
   owner?: string;
   name?: string;
   resourceType?: "wood" | "stone" | "iron" | "crop";
+  biome?: string;
 }
 
 interface AdminMapProps {
   tiles: Tile[];
-  size: number; // world size (ex: 100 → 100x100)
+  size: number;
   onSelect?: (x: number, y: number) => void;
   center?: { x: number; y: number };
 }
 
-export default function AdminMap({
-  tiles,
-  size,
-  onSelect,
-  center,
-}: AdminMapProps) {
-  const [tilePx, setTilePx] = useState(22);
+export default function AdminMap({ tiles, size, onSelect, center }: AdminMapProps) {
+  const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState({ x: 400, y: 300 });
+  const dragging = useRef(false);
+  const lastPos = useRef<{ x: number; y: number } | null>(null);
+
+  const radius = 18;
+  const hexHeight = Math.sqrt(3) * radius;
 
   const byPos = useMemo(() => {
     const m = new Map<string, Tile>();
@@ -30,134 +35,138 @@ export default function AdminMap({
     return m;
   }, [tiles]);
 
-  const containerRef = useRef<HTMLDivElement>(null);
+  // calcula pontos do hexágono
+  const hexPts = useMemo(() => {
+    const pts: number[] = [];
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI / 3) * i;
+      pts.push(radius * Math.cos(angle), radius * Math.sin(angle));
+    }
+    return pts;
+  }, [radius]);
+
+  // centra no activeVillage
   useEffect(() => {
-    if (center && containerRef.current) {
-      const { x, y } = center;
-      const scrollX = x * tilePx - containerRef.current.clientWidth / 2;
-      const scrollY = y * tilePx - containerRef.current.clientHeight / 2;
-      containerRef.current.scrollTo({
-        left: scrollX,
-        top: scrollY,
-        behavior: "smooth",
+    if (center) {
+      setOffset({
+        x: 400 - center.x * (radius * 1.5),
+        y: 300 - center.y * hexHeight,
       });
     }
-  }, [center, tilePx]);
+  }, [center, radius, hexHeight]);
 
-  const getTileStyle = (tile?: Tile, isActive?: boolean) => {
-    let bg = "bg-neutral-800 border border-neutral-900";
-    let icon = "";
-
-    if (tile) {
-      switch (tile.type) {
-        case "village":
-          bg = "bg-emerald-600 border border-emerald-800";
-          icon = "🏰";
-          break;
-        case "outpost":
-          bg = "bg-red-600 border border-red-800";
-          icon = "⚑";
-          break;
-        case "resource":
-          switch (tile.resourceType) {
-            case "wood":
-              bg = "bg-green-700 border border-green-900";
-              icon = "🌲";
-              break;
-            case "stone":
-              bg = "bg-stone-500 border border-stone-700";
-              icon = "🪨";
-              break;
-            case "iron":
-              bg = "bg-slate-500 border border-slate-700";
-              icon = "⛓️";
-              break;
-            case "crop":
-            default:
-              bg = "bg-yellow-400 border border-yellow-600";
-              icon = "🌾";
-              break;
-          }
-          break;
-        case "npc":
-          bg = "bg-amber-900 border border-amber-950";
-          icon = "💀";
-          break;
-      }
+  function getTileColor(tile?: Tile): number {
+    if (!tile) return 0x222222;
+    switch (tile.type) {
+      case "village":
+        return 0x2ecc71;
+      case "outpost":
+        return 0xe74c3c;
+      case "resource":
+        switch (tile.resourceType) {
+          case "wood":
+            return 0x27ae60;
+          case "stone":
+            return 0x95a5a6;
+          case "iron":
+            return 0x7f8c8d;
+          default:
+            return 0xf1c40f;
+        }
+      case "npc":
+        return 0x8e44ad;
+      default:
+        return 0x333333;
     }
+  }
 
-    if (isActive) {
-      bg += " ring-2 ring-yellow-300 animate-pulse";
+  // handlers de panning
+  function onPointerDown(e: FederatedPointerEvent) {
+    dragging.current = true;
+    lastPos.current = { x: e.clientX, y: e.clientY };
+  }
+  function onPointerUp() {
+    dragging.current = false;
+    lastPos.current = null;
+  }
+  function onPointerMove(e: FederatedPointerEvent) {
+    if (dragging.current && lastPos.current) {
+      const dx = e.clientX - lastPos.current.x;
+      const dy = e.clientY - lastPos.current.y;
+      setOffset((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+      lastPos.current = { x: e.clientX, y: e.clientY };
     }
+  }
+  function onWheel(e: WheelEvent) {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.1 : 0.9;
+    setScale((s) => Math.min(3, Math.max(0.3, s * factor)));
+  }
 
-    return { bg, icon };
-  };
+  // listener de wheel
+  useEffect(() => {
+    const canvas = document.querySelector("canvas");
+    if (canvas) {
+      canvas.addEventListener("wheel", onWheel, { passive: false });
+      return () => canvas.removeEventListener("wheel", onWheel);
+    }
+  }, []);
 
   return (
     <div className="space-y-2">
-      {/* legenda */}
-      <div className="flex flex-wrap items-center justify-between text-xs text-slate-300">
+      {/* HUD */}
+      <div className="flex justify-between items-center text-xs text-slate-300">
         <div className="flex gap-3 flex-wrap">
-          <span className="inline-flex items-center gap-1">🏰 Village</span>
-          <span className="inline-flex items-center gap-1">⚑ Outpost</span>
-          <span className="inline-flex items-center gap-1">🌾 Crop</span>
-          <span className="inline-flex items-center gap-1">🌲 Wood</span>
-          <span className="inline-flex items-center gap-1">🪨 Stone</span>
-          <span className="inline-flex items-center gap-1">⛓️ Iron</span>
-          <span className="inline-flex items-center gap-1">💀 NPC</span>
-        </div>
-        <label className="flex items-center gap-2">
-          Zoom
-          <input
-            type="range"
-            min={12}
-            max={40}
-            value={tilePx}
-            onChange={(e) => setTilePx(Number(e.target.value))}
-          />
-        </label>
-      </div>
-
-      {/* grid */}
-      <div
-        ref={containerRef}
-        className="card overflow-auto max-w-full max-h-[70vh] p-2 bg-neutral-950 rounded-lg shadow-inner"
-      >
-        <div style={{ width: tilePx * size }}>
-          <div
-            className="grid"
-            style={{ gridTemplateColumns: `repeat(${size}, ${tilePx}px)` }}
-          >
-            {Array.from({ length: size * size }).map((_, i) => {
-              const x = i % size;
-              const y = Math.floor(i / size);
-              const tile = byPos.get(`${x},${y}`);
-              const isActive =
-                center && center.x === x && center.y === y;
-              const { bg, icon } = getTileStyle(tile, isActive);
-
-              return (
-                <button
-                  key={`${x}-${y}`}
-                  onClick={() => onSelect?.(x, y)}
-                  title={`${tile?.name ?? "Empty"}\n(${x},${y}) • ${
-                    tile?.type ?? "empty"
-                  }${tile?.owner ? ` (${tile.owner})` : ""}`}
-                  className={`${bg} flex items-center justify-center hover:scale-105 transition-transform`}
-                  style={{
-                    width: tilePx,
-                    height: tilePx,
-                    fontSize: tilePx <= 14 ? 8 : 11,
-                    lineHeight: 1,
-                  }}
-                >
-                  {icon}
-                </button>
-              );
-            })}
-          </div>
+          <span>🏰 Village</span>
+          <span>⚑ Outpost</span>
+          <span>🌾 Crop</span>
+          <span>🌲 Wood</span>
+          <span>🪨 Stone</span>
+          <span>⛓️ Iron</span>
+          <span>💀 NPC</span>
         </div>
       </div>
+
+      {/* PIXI Stage */}
+      <Stage width={800} height={600} options={{ backgroundColor: 0x111111, antialias: true }}>
+        <Container
+          position={offset}
+          scale={{ x: scale, y: scale }}
+          interactive
+          pointerdown={onPointerDown}
+          pointerup={onPointerUp}
+          pointerupoutside={onPointerUp}
+          pointermove={onPointerMove}
+            {...({ children: undefined } as any)}
+        >
+          {Array.from({ length: size * size }).map((_, i) => {
+            const q = i % size;
+            const r = Math.floor(i / size);
+
+            const x = q * (radius * 1.5);
+            const y = r * hexHeight + (q % 2) * (hexHeight / 2);
+
+            const tile = byPos.get(`${q},${r}`);
+            const color = getTileColor(tile);
+
+            return (
+              <Graphics
+                key={`${q}-${r}`}
+                x={x}
+                y={y}
+                interactive
+                pointerdown={() => onSelect?.(q, r)}
+                draw={(g) => {
+                  g.clear();
+                  g.beginFill(color);
+                  g.drawPolygon(hexPts);
+                  g.endFill();
+                }}
+              />
+            );
+          })}
+        </Container>
+      </Stage>
     </div>
   );
 }

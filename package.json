@@ -10,7 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@pixi/react": "^8.0.3",
+    "@pixi/react-pixi": "^7.0.0-alpha.0",
     "axios": "^1.12.1",
+    "pixi.js": "^8.13.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.9.1"
@@ -19,6 +22,7 @@
     "@eslint/js": "^9.33.0",
     "@tailwindcss/postcss": "^4.1.13",
     "@types/node": "^24.4.0",
+    "@types/pixi.js": "^5.0.0",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^5.0.0",

@@ -30,6 +30,7 @@ export default function MapView() {
             owner: t.playerName,
             name: t.name,
             resourceType: t.resourceType ?? undefined,
+            biome: t.biome ?? undefined,
           }))
         )
       )
@@ -40,9 +41,7 @@ export default function MapView() {
       .finally(() => setLoading(false));
   }, []);
 
-  const selectedTile = sel
-    ? tiles.find((tt) => tt.x === sel.x && tt.y === sel.y)
-    : null;
+  const selectedTile = sel ? tiles.find((tt) => tt.x === sel.x && tt.y === sel.y) : null;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
@@ -60,9 +59,7 @@ export default function MapView() {
             size={100}
             onSelect={(x, y) => setSel({ x, y })}
             center={
-              activeVillage
-                ? { x: activeVillage.x, y: activeVillage.y }
-                : undefined
+              activeVillage ? { x: activeVillage.x, y: activeVillage.y } : undefined
             }
           />
         )}
@@ -71,11 +68,7 @@ export default function MapView() {
       {/* detalhes */}
       <aside className="rounded-xl border border-white/10 bg-neutral-900 p-4">
         <h3 className="font-semibold mb-2">Tile</h3>
-        {!sel && (
-          <div className="text-sm text-slate-400">
-            Clica num tile no mapa…
-          </div>
-        )}
+        {!sel && <div className="text-sm text-slate-400">Clica num tile no mapa…</div>}
 
         {sel && !selectedTile && (
           <div className="text-sm text-slate-400">
@@ -94,6 +87,11 @@ export default function MapView() {
             {selectedTile.resourceType && (
               <div>
                 <strong>Resource:</strong> {selectedTile.resourceType}
+              </div>
+            )}
+            {selectedTile.biome && (
+              <div>
+                <strong>Biome:</strong> {selectedTile.biome}
               </div>
             )}
             {selectedTile.name && (
