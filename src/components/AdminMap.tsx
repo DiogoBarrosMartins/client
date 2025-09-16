@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Stage, Container, Graphics } from "@pixi/react-pixi";
+import { Stage, Container, Graphics } from "@pixi/react";
 import type { FederatedPointerEvent } from "pixi.js";
 
 export interface Tile {
@@ -35,7 +34,7 @@ export default function AdminMap({ tiles, size, onSelect, center }: AdminMapProp
     return m;
   }, [tiles]);
 
-  // calcula pontos do hexágono
+  // hexágono regular
   const hexPts = useMemo(() => {
     const pts: number[] = [];
     for (let i = 0; i < 6; i++) {
@@ -80,37 +79,24 @@ export default function AdminMap({ tiles, size, onSelect, center }: AdminMapProp
     }
   }
 
-  // handlers de panning
-  function onPointerDown(e: FederatedPointerEvent) {
+  // handlers para panning
+  const handlePointerDown = (e: FederatedPointerEvent) => {
     dragging.current = true;
-    lastPos.current = { x: e.clientX, y: e.clientY };
-  }
-  function onPointerUp() {
+    lastPos.current = { x: e.global.x, y: e.global.y };
+  };
+
+  const handlePointerUp = () => {
     dragging.current = false;
     lastPos.current = null;
-  }
-  function onPointerMove(e: FederatedPointerEvent) {
-    if (dragging.current && lastPos.current) {
-      const dx = e.clientX - lastPos.current.x;
-      const dy = e.clientY - lastPos.current.y;
-      setOffset((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
-      lastPos.current = { x: e.clientX, y: e.clientY };
-    }
-  }
-  function onWheel(e: WheelEvent) {
-    e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.1 : 0.9;
-    setScale((s) => Math.min(3, Math.max(0.3, s * factor)));
-  }
+  };
 
-  // listener de wheel
-  useEffect(() => {
-    const canvas = document.querySelector("canvas");
-    if (canvas) {
-      canvas.addEventListener("wheel", onWheel, { passive: false });
-      return () => canvas.removeEventListener("wheel", onWheel);
-    }
-  }, []);
+  const handlePointerMove = (e: FederatedPointerEvent) => {
+    if (!dragging.current || !lastPos.current) return;
+    const dx = e.global.x - lastPos.current.x;
+    const dy = e.global.y - lastPos.current.y;
+    setOffset((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+    lastPos.current = { x: e.global.x, y: e.global.y };
+  };
 
   return (
     <div className="space-y-2">
@@ -125,6 +111,17 @@ export default function AdminMap({ tiles, size, onSelect, center }: AdminMapProp
           <span>⛓️ Iron</span>
           <span>💀 NPC</span>
         </div>
+        <label className="flex items-center gap-2">
+          Zoom
+          <input
+            type="range"
+            min={0.5}
+            max={2}
+            step={0.1}
+            value={scale}
+            onChange={(e) => setScale(Number(e.target.value))}
+          />
+        </label>
       </div>
 
       {/* PIXI Stage */}
@@ -132,17 +129,16 @@ export default function AdminMap({ tiles, size, onSelect, center }: AdminMapProp
         <Container
           position={offset}
           scale={{ x: scale, y: scale }}
-          interactive
-          pointerdown={onPointerDown}
-          pointerup={onPointerUp}
-          pointerupoutside={onPointerUp}
-          pointermove={onPointerMove}
-            {...({ children: undefined } as any)}
+          pointerdown={handlePointerDown}
+          pointerup={handlePointerUp}
+          pointerupoutside={handlePointerUp}
+          pointermove={handlePointerMove}
         >
           {Array.from({ length: size * size }).map((_, i) => {
             const q = i % size;
             const r = Math.floor(i / size);
 
+            // axial grid → offset coords
             const x = q * (radius * 1.5);
             const y = r * hexHeight + (q % 2) * (hexHeight / 2);
 
@@ -154,7 +150,6 @@ export default function AdminMap({ tiles, size, onSelect, center }: AdminMapProp
                 key={`${q}-${r}`}
                 x={x}
                 y={y}
-                interactive
                 pointerdown={() => onSelect?.(q, r)}
                 draw={(g) => {
                   g.clear();
